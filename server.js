@@ -6,11 +6,14 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// FOTOĞRAF TRANSFERİ İÇİN LİMİTİ 5MB YAPIYORUZ
+const io = new Server(server, {
+    maxHttpBufferSize: 5e6 
+});
 
 const activeRooms = new Map();
 
-// 1. KAMUFLAJLI ANA SAYFA (GİZLİ GEÇİT)
 app.get('/', (req, res) => {
     if (req.query.kod === 'kartal') {
         const roomId = uuidv4();
@@ -19,12 +22,11 @@ app.get('/', (req, res) => {
             activeRooms.delete(roomId);
             io.to(roomId).emit('imha-edildi', 'Oda süresi doldu. Link imha edildi.');
             io.in(roomId).socketsLeave(roomId);
-        }, 30 * 60 * 1000); // 30 Dakika tolerans
+        }, 30 * 60 * 1000); 
 
         activeRooms.set(roomId, timeout);
         res.redirect(`/sohbet/${roomId}`);
     } else {
-        // Şifreyi bilmeyenlere gösterilecek sahte hata sayfası
         res.status(404).send(`
             <html>
             <body style="background-color: white; color: black; font-family: sans-serif; text-align: center; padding-top: 10%;">
@@ -38,15 +40,12 @@ app.get('/', (req, res) => {
     }
 });
 
-// 2. STATİK DOSYALAR (Tasarımı klasörden oku ama ana sayfaya koyma)
 app.use(express.static('public', { index: false }));
 
-// 3. SOHBET ODASI YÖNLENDİRMESİ
 app.get('/sohbet/:id', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 4. SOCKET.IO SOHBET BAĞLANTILARI
 io.on('connection', (socket) => {
     socket.on('odaya-katil', (roomId) => {
         const room = io.sockets.adapter.rooms.get(roomId);
@@ -76,12 +75,13 @@ io.on('connection', (socket) => {
         if(socket.roomId) socket.to(socket.roomId).emit('mesaj-al', mesaj);
     });
 
-    socket.on('yaziyor', (durum) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum);
+    // YENİ: MEDYA (FOTOĞRAF) GÖNDERME KANALI
+    socket.on('medya-gonder', (medya) => {
+        if(socket.roomId) socket.to(socket.roomId).emit('medya-al', medya);
     });
 
-    socket.on('durum-degisti', (durum) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('karsi-durum', durum);
+    socket.on('yaziyor', (durum) => {
+        if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum);
     });
 
     socket.on('disconnect', () => {
@@ -93,7 +93,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// 5. SUNUCUYU AYAĞA KALDIR
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log('Bulut sunucu çalışıyor...');
