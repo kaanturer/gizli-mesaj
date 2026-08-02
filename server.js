@@ -1,19 +1,55 @@
 const express = require('express');
-const http = require('http');
+const http = require('http'); 
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
 const app = express();
-const server = http.createServer(app);
+app.set('trust proxy', true);
 
-const io = new Server(server, {
-    maxHttpBufferSize: 5e6 
-});
+const server = http.createServer(app);
+const io = new Server(server, { maxHttpBufferSize: 5e6 });
 
 const activeRooms = new Map();
 
-app.get('/', async (req, res) => {
+// 🚨 YENİ: ORTAK TEHDİT RAPORLAMA MERKEZİ (Hem URL hem Socket için)
+function tehditRaporla(istek, ioInstance, isSocket = false) {
+    let ip, userAgent;
+
+    if (isSocket) {
+        // Arka kapıdan (sahte/ölü link ile) girmeye çalışanlar
+        ip = istek.handshake.headers['x-forwarded-for'] || istek.handshake.address || 'Bilinmiyor';
+        userAgent = istek.handshake.headers['user-agent'] || 'Bilinmeyen Cihaz';
+    } else {
+        // Ana kapıdan (şifresiz ana link ile) girmeye çalışanlar
+        ip = istek.ip || istek.headers['x-forwarded-for'] || istek.socket.remoteAddress || 'Bilinmiyor';
+        userAgent = istek.headers['user-agent'] || 'Bilinmeyen Cihaz';
+    }
+
+    const temizIp = ip.split(',')[0].trim();
+
+    // Arka planda sessizce konumu çöz
+    http.get(`http://ip-api.com/json/${temizIp}`, (apiRes) => {
+        let data = '';
+        apiRes.on('data', (chunk) => data += chunk);
+        apiRes.on('end', () => {
+            try {
+                const veri = JSON.parse(data);
+                const konum = veri.status === 'success' ? `${veri.city}, ${veri.country}` : 'Tespit Edilemedi';
+                const isp = veri.status === 'success' ? veri.isp : 'Bilinmiyor';
+                // Sen içerideyken ekranına kırmızı şeritle bu bilgiyi fırlat
+                ioInstance.emit('tehdit-algilandi', { ip: temizIp, konum: konum, isp: isp, cihaz: userAgent });
+            } catch (e) {
+                ioInstance.emit('tehdit-algilandi', { ip: temizIp, konum: 'Hata', isp: 'Hata', cihaz: userAgent });
+            }
+        });
+    }).on('error', () => {
+        ioInstance.emit('tehdit-algilandi', { ip: temizIp, konum: 'Bağlantı Hatası', isp: 'Hata', cihaz: userAgent });
+    });
+}
+
+// 1. ANA KAPI (Şifresiz girenleri avla)
+app.get('/', (req, res) => {
     if (req.query.kod === 'kartal') {
         const roomId = uuidv4();
         
@@ -26,32 +62,9 @@ app.get('/', async (req, res) => {
         activeRooms.set(roomId, timeout);
         res.redirect(`/sohbet/${roomId}`);
     } else {
-        // YENİ: SESSİZ KONUM VE IP TESPİTİ
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Bilinmiyor';
-        const temizIp = ip.split(',')[0].trim();
-        const userAgent = req.headers['user-agent'] || 'Bilinmeyen Cihaz';
+        // RADAR TETİKLENSİN
+        tehditRaporla(req, io, false);
         
-        try {
-            // Şüpheliye hiçbir şey belli etmeden IP adresini küresel haritada tara
-            const apiYanit = await fetch(`http://ip-api.com/json/${temizIp}`);
-            const veri = await apiYanit.json();
-            
-            const konumBilgisi = veri.status === 'success' ? `${veri.city}, ${veri.country}` : 'Tespit Edilemedi';
-            const saglayici = veri.status === 'success' ? veri.isp : 'Bilinmiyor';
-
-            // Sonuçları içerideki gizli odaya raporla
-            io.emit('tehdit-algilandi', { 
-                ip: temizIp, 
-                konum: konumBilgisi,
-                isp: saglayici,
-                cihaz: userAgent 
-            });
-        } catch (error) {
-            // Eğer harita servisi yanıt vermezse sadece IP'yi yolla
-            io.emit('tehdit-algilandi', { ip: temizIp, konum: 'Bilinmiyor', isp: 'Bilinmiyor', cihaz: userAgent });
-        }
-
-        // Şüpheliye sahte 404 hatasını gösterip uyutmaya devam et
         res.status(404).send(`
             <html>
             <body style="background-color: white; color: black; font-family: sans-serif; text-align: center; padding-top: 10%;">
@@ -71,6 +84,7 @@ app.get('/sohbet/:id', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 2. ARKA KAPI (Odalara sızmaya çalışanları avla)
 io.on('connection', (socket) => {
     socket.on('odaya-katil', (roomId) => {
         const room = io.sockets.adapter.rooms.get(roomId);
@@ -78,6 +92,8 @@ io.on('connection', (socket) => {
 
         if (userCount === 0 && !activeRooms.has(roomId)) {
              socket.emit('imha-edildi', 'Bu linkin süresi dolmuş veya imha edilmiş.');
+             // RADAR TETİKLENSİN (Ölü/Sahte Link İhlali)
+             tehditRaporla(socket, io, true);
              return;
         }
 
@@ -93,24 +109,15 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('sohbet-basladi');
         } else {
             socket.emit('imha-edildi', 'Oda dolu veya kilitli.');
+            // RADAR TETİKLENSİN (Dolu Odaya Sızma İhlali)
+            tehditRaporla(socket, io, true);
         }
     });
 
-    socket.on('mesaj-gonder', (mesaj) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('mesaj-al', mesaj);
-    });
-
-    socket.on('medya-gonder', (medya) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('medya-al', medya);
-    });
-
-    socket.on('yaziyor', (durum) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum);
-    });
-
-    socket.on('durum-degisti', (durum) => {
-        if(socket.roomId) socket.to(socket.roomId).emit('karsi-durum', durum);
-    });
+    socket.on('mesaj-gonder', (mesaj) => { if(socket.roomId) socket.to(socket.roomId).emit('mesaj-al', mesaj); });
+    socket.on('medya-gonder', (medya) => { if(socket.roomId) socket.to(socket.roomId).emit('medya-al', medya); });
+    socket.on('yaziyor', (durum) => { if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum); });
+    socket.on('durum-degisti', (durum) => { if(socket.roomId) socket.to(socket.roomId).emit('karsi-durum', durum); });
 
     socket.on('disconnect', () => {
         if (socket.roomId) {
@@ -122,6 +129,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log('Bulut sunucu çalışıyor...');
-});
+server.listen(PORT, () => console.log('Bulut sunucu çalışıyor...'));
