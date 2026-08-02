@@ -24,6 +24,9 @@
         @keyframes yanipSonme { 50% { opacity: 0.3; } }
         #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
         #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
+        /* Anti-seçim CSS Koruması */
+        * { user-select: none; -webkit-user-select: none; -ms-user-select: none; }
+        input { user-select: auto; -webkit-user-select: auto; }
     </style>
 </head>
 <body>
@@ -43,6 +46,46 @@
     </div>
 
     <script>
+        // ---------------------------------------------------------
+        // BÖLÜM 1: ANTI-ADLİ BİLİŞİM KALKANI (TERSİNE MÜHENDİSLİK ENGELİ)
+        // ---------------------------------------------------------
+        
+        // 1. Sağ Tıklamayı Engelle
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // 2. Tehlikeli Klavye Kısayollarını Engelle (F12, Ctrl+Shift+I, Ctrl+U vb.)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F12' || 
+               (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+               (e.ctrlKey && e.key === 'U')) {
+                e.preventDefault();
+                socket.emit('durum-degisti', 'gelistirici-konsolu-ihlali');
+            }
+        });
+
+        // 3. Debugger Tuzağı (Kamikaze Protokolü)
+        let kalkanAktif = true;
+        setInterval(() => {
+            const baslangic = performance.now();
+            debugger; // Eğer konsol açıksa tarayıcı burada donar
+            const bitis = performance.now();
+            
+            // Eğer kodun işlenmesi 100 milisaniyeden uzun sürdüyse, konsol zorla açılmış demektir.
+            if (bitis - baslangic > 100 && kalkanAktif) {
+                kalkanAktif = false; // Sonsuz döngüye girmemesi için
+                document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;">
+                    <h1>🚨 SİSTEM İMHA EDİLDİ 🚨</h1>
+                    <p>Tersine mühendislik / Geliştirici Konsolu tespit edildi.<br>Güvenlik protokolü gereği tüm veriler silindi.</p>
+                </div>`;
+                socket.emit('durum-degisti', 'gelistirici-konsolu-ihlali');
+                socket.disconnect();
+            }
+        }, 1000);
+
+        // ---------------------------------------------------------
+        // BÖLÜM 2: STANDART İSTİHBARAT AĞI KODLARI (DEĞİŞMEDİ)
+        // ---------------------------------------------------------
+
         const socket = io();
         const roomId = window.location.pathname.split('/').pop();
         const GIZLI_ANAHTAR = roomId; 
@@ -136,7 +179,6 @@
             mesajlar.scrollTop = mesajlar.scrollHeight;
         }
 
-        // YENİ: KONUM DESTEKLİ BAL KÜPÜ RAPORUNU EKRANA BAS
         socket.on('tehdit-algilandi', (bilgi) => {
             const div = document.createElement('div');
             div.className = `mesaj tehdit-uyari`;
@@ -172,15 +214,18 @@
         });
 
         window.addEventListener('blur', () => { socket.emit('durum-degisti', 'sekme-ihlali'); });
+        
         document.addEventListener('keyup', (e) => {
             if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey)) {
                 socket.emit('durum-degisti', 'ekran-goruntusu-ihlali');
             }
         });
 
+        // YENİ EKLENDİ: Geliştirici Konsolu İhlali Raporu
         socket.on('karsi-durum', (durum) => {
             if (durum === 'sekme-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf sekme değiştirdi!"); } 
             else if (durum === 'ekran-goruntusu-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf ekran fotoğrafı almaya çalıştı!"); }
+            else if (durum === 'gelistirici-konsolu-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf sistem kodlarını incelemeye (F12) çalıştı!"); }
         });
     </script>
 </body>
