@@ -13,7 +13,7 @@ const io = new Server(server, {
 
 const activeRooms = new Map();
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     if (req.query.kod === 'kartal') {
         const roomId = uuidv4();
         
@@ -26,18 +26,32 @@ app.get('/', (req, res) => {
         activeRooms.set(roomId, timeout);
         res.redirect(`/sohbet/${roomId}`);
     } else {
-        // YENİ: BAL KÜPÜ (HONEYPOT) TETİKLENDİ
-        // İzinsiz girmeye çalışan kişinin IP ve Cihaz bilgisini çek
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Gizli IP';
+        // YENİ: SESSİZ KONUM VE IP TESPİTİ
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Bilinmiyor';
+        const temizIp = ip.split(',')[0].trim();
         const userAgent = req.headers['user-agent'] || 'Bilinmeyen Cihaz';
         
-        // Eğer içeride açık bir sohbet odası varsa, bu sızma girişimini oraya raporla
-        io.emit('tehdit-algilandi', { 
-            ip: ip.split(',')[0], 
-            cihaz: userAgent 
-        });
+        try {
+            // Şüpheliye hiçbir şey belli etmeden IP adresini küresel haritada tara
+            const apiYanit = await fetch(`http://ip-api.com/json/${temizIp}`);
+            const veri = await apiYanit.json();
+            
+            const konumBilgisi = veri.status === 'success' ? `${veri.city}, ${veri.country}` : 'Tespit Edilemedi';
+            const saglayici = veri.status === 'success' ? veri.isp : 'Bilinmiyor';
 
-        // Şüpheliye hiçbir şey çaktırma, normal hata sayfasını göster
+            // Sonuçları içerideki gizli odaya raporla
+            io.emit('tehdit-algilandi', { 
+                ip: temizIp, 
+                konum: konumBilgisi,
+                isp: saglayici,
+                cihaz: userAgent 
+            });
+        } catch (error) {
+            // Eğer harita servisi yanıt vermezse sadece IP'yi yolla
+            io.emit('tehdit-algilandi', { ip: temizIp, konum: 'Bilinmiyor', isp: 'Bilinmiyor', cihaz: userAgent });
+        }
+
+        // Şüpheliye sahte 404 hatasını gösterip uyutmaya devam et
         res.status(404).send(`
             <html>
             <body style="background-color: white; color: black; font-family: sans-serif; text-align: center; padding-top: 10%;">
