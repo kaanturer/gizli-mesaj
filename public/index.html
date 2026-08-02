@@ -7,106 +7,23 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        body {
-            background-color: #000;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #sohbet-alani {
-            width: 100%;
-            max-width: 600px;
-            background-color: rgba(10, 10, 10, 0.9);
-            border: 1px solid #0f0;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 0 20px #0f0;
-            display: none;
-            flex-direction: column;
-            height: 80vh;
-        }
-        #mesajlar {
-            flex-grow: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            padding-right: 10px;
-            word-wrap: break-word;
-        }
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        #sohbet-alani { width: 100%; max-width: 600px; background-color: rgba(10, 10, 10, 0.9); border: 1px solid #0f0; border-radius: 10px; padding: 20px; box-shadow: 0 0 20px #0f0; display: none; flex-direction: column; height: 80vh; }
+        #mesajlar { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; padding-right: 10px; word-wrap: break-word; }
         .mesaj { margin-bottom: 10px; }
         .ben { color: #0f0; text-align: right; }
         .karsi { color: #ff0055; text-align: left; }
-        
-        /* YENİ: SİSTEM İHLAL UYARISI TASARIMI */
-        .sistem-uyari {
-            color: #ff0000;
-            text-align: center;
-            font-weight: bold;
-            background-color: rgba(255, 0, 0, 0.1);
-            padding: 5px;
-            border: 1px dashed #ff0000;
-            border-radius: 5px;
-        }
-
-        .medya-gorsel {
-            max-width: 80%;
-            border-radius: 8px;
-            margin-top: 5px;
-            border: 1px solid #333;
-        }
-        #girdi-alani {
-            display: flex;
-            gap: 10px;
-        }
-        #mesaj-kutusu {
-            flex-grow: 1;
-            background-color: #000;
-            border: 1px solid #0f0;
-            color: #0f0;
-            padding: 10px;
-            outline: none;
-            border-radius: 5px;
-        }
-        button {
-            background-color: #0f0;
-            color: #000;
-            border: none;
-            padding: 10px 15px;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 5px;
-        }
-        #dosya-butonu {
-            background-color: #444;
-            color: white;
-        }
-        #bekleme-ekrani {
-            text-align: center;
-            font-size: 20px;
-            animation: yanipSonme 1.5s infinite;
-        }
-        @keyframes yanipSonme {
-            50% { opacity: 0.3; }
-        }
-        #durum-bilgisi {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 10px;
-            text-align: center;
-            height: 15px;
-            font-weight: bold;
-        }
-        #esc-uyari {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 12px;
-            color: gray;
-        }
+        .sistem-uyari { color: #ff0000; text-align: center; font-weight: bold; background-color: rgba(255, 0, 0, 0.1); padding: 5px; border: 1px dashed #ff0000; border-radius: 5px; }
+        .tehdit-uyari { color: #ff9900; text-align: center; font-weight: bold; background-color: rgba(255, 153, 0, 0.1); padding: 10px; border: 1px solid #ff9900; border-radius: 5px; margin-bottom: 10px; font-size: 11px; }
+        .medya-gorsel { max-width: 80%; border-radius: 8px; margin-top: 5px; border: 1px solid #333; }
+        #girdi-alani { display: flex; gap: 10px; }
+        #mesaj-kutusu { flex-grow: 1; background-color: #000; border: 1px solid #0f0; color: #0f0; padding: 10px; outline: none; border-radius: 5px; }
+        button { background-color: #0f0; color: #000; border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        #dosya-butonu { background-color: #444; color: white; }
+        #bekleme-ekrani { text-align: center; font-size: 20px; animation: yanipSonme 1.5s infinite; }
+        @keyframes yanipSonme { 50% { opacity: 0.3; } }
+        #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
+        #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
     </style>
 </head>
 <body>
@@ -139,19 +56,9 @@
 
         socket.emit('odaya-katil', roomId);
 
-        socket.on('katilim-durumu', (data) => {
-            beklemeEkrani.innerText = "Davetiyenin tıklanması bekleniyor...";
-        });
-
-        socket.on('sohbet-basladi', () => {
-            beklemeEkrani.style.display = 'none';
-            sohbetAlani.style.display = 'flex';
-        });
-
-        socket.on('imha-edildi', (sebep) => {
-            document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;"><h1>SİSTEM İMHA EDİLDİ</h1><p>${sebep}</p></div>`;
-            socket.disconnect();
-        });
+        socket.on('katilim-durumu', (data) => { beklemeEkrani.innerText = "Davetiyenin tıklanması bekleniyor..."; });
+        socket.on('sohbet-basladi', () => { beklemeEkrani.style.display = 'none'; sohbetAlani.style.display = 'flex'; });
+        socket.on('imha-edildi', (sebep) => { document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;"><h1>SİSTEM İMHA EDİLDİ</h1><p>${sebep}</p></div>`; socket.disconnect(); });
 
         function mesajGonder() {
             const mesaj = mesajKutusu.value.trim();
@@ -168,24 +75,35 @@
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliMesaj, GIZLI_ANAHTAR);
                 const orjinalMesaj = cozulenByte.toString(CryptoJS.enc.Utf8);
                 ekranaYazdir('Ajan', orjinalMesaj, 'karsi');
-            } catch (e) {
-                console.error("Şifre çözülemedi!");
-            }
+            } catch (e) { console.error("Şifre çözülemedi!"); }
         });
 
+        // YENİ: HAYALET MEDYA PROTOKOLÜ (EXIF SİLİCİ)
         dosyaSecici.addEventListener('change', function(e) {
             const dosya = e.target.files[0];
             if (!dosya) return;
-            if (dosya.size > 5 * 1024 * 1024) {
-                alert("Fotoğraf çok büyük. Lütfen 5 MB altı bir resim seçin.");
-                return;
-            }
+            if (dosya.size > 5 * 1024 * 1024) { alert("Fotoğraf çok büyük (Max 5MB)."); return; }
+            
             const okuyucu = new FileReader();
             okuyucu.onload = function(olay) {
-                const base64Foto = olay.target.result; 
-                fotoYazdir('Sen', base64Foto, 'ben');
-                const sifreliFoto = CryptoJS.AES.encrypt(base64Foto, GIZLI_ANAHTAR).toString();
-                socket.emit('medya-gonder', sifreliFoto);
+                // Fotoğrafı gizli bir tuvale (canvas) aktarıp yeniden çiziyoruz.
+                // Bu işlem GPS, Cihaz modeli ve çekim saati gibi tüm izleri yok eder!
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Tertemiz, izsiz yeni fotoğraf verisi
+                    const exifsizFoto = canvas.toDataURL('image/jpeg', 0.8); 
+                    
+                    fotoYazdir('Sen', exifsizFoto, 'ben');
+                    const sifreliFoto = CryptoJS.AES.encrypt(exifsizFoto, GIZLI_ANAHTAR).toString();
+                    socket.emit('medya-gonder', sifreliFoto);
+                };
+                img.src = olay.target.result;
             };
             okuyucu.readAsDataURL(dosya);
             dosyaSecici.value = '';
@@ -196,9 +114,7 @@
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliFoto, GIZLI_ANAHTAR);
                 const orjinalFoto = cozulenByte.toString(CryptoJS.enc.Utf8);
                 fotoYazdir('Ajan', orjinalFoto, 'karsi');
-            } catch(e) {
-                console.error("Fotoğraf şifresi çözülemedi!");
-            }
+            } catch(e) { console.error("Fotoğraf şifresi çözülemedi!"); }
         });
 
         function ekranaYazdir(kisi, mesaj, cssSinifi) {
@@ -217,7 +133,6 @@
             mesajlar.scrollTop = mesajlar.scrollHeight;
         }
 
-        // YENİ: SİSTEM İHLALLERİNİ EKRANA YAZDIRAN FONKSİYON
         function sistemUyariYazdir(mesaj) {
             const div = document.createElement('div');
             div.className = `mesaj sistem-uyari`;
@@ -226,9 +141,16 @@
             mesajlar.scrollTop = mesajlar.scrollHeight;
         }
 
-        mesajKutusu.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') mesajGonder();
+        // YENİ: BAL KÜPÜ RAPORUNU EKRANA BAS
+        socket.on('tehdit-algilandi', (bilgi) => {
+            const div = document.createElement('div');
+            div.className = `mesaj tehdit-uyari`;
+            div.innerHTML = `🚨 BAL KÜPÜ TETİKLENDİ!<br>Sisteme yetkisiz giriş denemesi tespit edildi.<br><b>Hedef IP:</b> ${bilgi.ip}<br><b>Cihaz:</b> ${bilgi.cihaz}`;
+            mesajlar.appendChild(div);
+            mesajlar.scrollTop = mesajlar.scrollHeight;
         });
+
+        mesajKutusu.addEventListener('keypress', (e) => { if (e.key === 'Enter') mesajGonder(); });
 
         let yaziyorZamanlayici;
         mesajKutusu.addEventListener('input', () => {
@@ -250,26 +172,16 @@
             }
         });
 
-        // SEKME İHLALİNİ YAKALA VE BİLDİR
-        window.addEventListener('blur', () => {
-            socket.emit('durum-degisti', 'sekme-ihlali');
-        });
-
-        // KLAVYEDEN EKRAN GÖRÜNTÜSÜ ALMA GİRİŞİMİNİ YAKALA VE BİLDİR
+        window.addEventListener('blur', () => { socket.emit('durum-degisti', 'sekme-ihlali'); });
         document.addEventListener('keyup', (e) => {
-            // PrintScreen tuşu veya Mac kısayolları (Cmd + Shift)
             if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey)) {
                 socket.emit('durum-degisti', 'ekran-goruntusu-ihlali');
             }
         });
 
-        // KARŞI TARAFTAN GELEN İHLAL RAPORLARINI EKRANA BAS
         socket.on('karsi-durum', (durum) => {
-            if (durum === 'sekme-ihlali') {
-                sistemUyariYazdir("WRONG: Karşı taraf sekme değiştirdi!");
-            } else if (durum === 'ekran-goruntusu-ihlali') {
-                sistemUyariYazdir("WRONG: Karşı taraf ekran fotoğrafı almaya çalıştı!");
-            }
+            if (durum === 'sekme-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf sekme değiştirdi!"); } 
+            else if (durum === 'ekran-goruntusu-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf ekran fotoğrafı almaya çalıştı!"); }
         });
     </script>
 </body>
