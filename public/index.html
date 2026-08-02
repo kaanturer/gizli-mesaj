@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         body { background-color: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        #sohbet-alani { width: 100%; max-width: 600px; background-color: rgba(10, 10, 10, 0.9); border: 1px solid #0f0; border-radius: 10px; padding: 20px; box-shadow: 0 0 20px #0f0; display: none; flex-direction: column; height: 80vh; }
+        #sohbet-alani { width: 100%; max-width: 600px; background-color: rgba(10, 10, 10, 0.9); border: 1px solid #0f0; border-radius: 10px; padding: 20px; box-shadow: 0 0 20px #0f0; display: none; flex-direction: column; height: 80vh; transition: filter 0.3s ease; }
         #mesajlar { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; padding-right: 10px; word-wrap: break-word; }
         .mesaj { margin-bottom: 10px; }
         .ben { color: #0f0; text-align: right; }
@@ -24,6 +24,14 @@
         @keyframes yanipSonme { 50% { opacity: 0.3; } }
         #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
         #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
+        
+        /* SNAPCHAT TARZI GİZLEME VE BULANIKLIK PERDESİ */
+        .gizli-perde {
+            filter: blur(20px) !important;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
         * { user-select: none; -webkit-user-select: none; -ms-user-select: none; }
         input { user-select: auto; -webkit-user-select: auto; }
     </style>
@@ -45,7 +53,7 @@
     </div>
 
     <script>
-        // 1. KOD KORUMA VE ANTI-DEBUGGER
+        // 1. KOD KORUMA VE ANTI-DEBUGGER (F12 / Sağ Tık Engeli)
         document.addEventListener('contextmenu', event => event.preventDefault());
         document.addEventListener('keydown', (e) => {
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'U')) {
@@ -196,14 +204,41 @@
             }
         });
 
-        // 4. RADAR VE İHLAL TESPİT SİSTEMİ
-        window.addEventListener('blur', () => { 
-            socket.emit('durum-degisti', 'odak-kaybi'); 
+        // 4. SNAPCHAT TARZI SEKME VE EKRAN GÖRÜNTÜSÜ TUZAĞI
+        // Kullanıcı başka sekmeye geçtiğinde veya ekran görüntüsü almak için bildirim paneline/başka uygulamaya kaydırdığında tetiklenir
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                socket.emit('durum-degisti', 'gizlendi');
+            } else {
+                socket.emit('durum-degisti', 'aktif');
+            }
         });
 
+        // Pencere odak kaybı (Ekran görüntüsü aracı açıldığında veya masaüstüne tıklandığında)
+        window.addEventListener('blur', () => {
+            socket.emit('durum-degisti', 'gizlendi');
+        });
+
+        window.addEventListener('focus', () => {
+            socket.emit('durum-degisti', 'aktif');
+        });
+
+        // KARŞI TARAFTAN GELEN SNAPCHAT İHLAL RAPORLARI
         socket.on('karsi-durum', (durum) => {
-            if (durum === 'odak-kaybi') { sistemUyariYazdir("WRONG: Karşı taraf pencereyi terk etti / Ekran görüntüsü almaya çalışıyor olabilir!"); } 
-            else if (durum === 'gelistirici-konsolu-ihlali') { sistemUyariYazdir("WRONG: Karşı taraf sistem kodlarını incelemeye (F12) çalıştı!"); }
+            if (durum === 'gizlendi') {
+                sohbetAlani.classList.add('gizli-perde');
+                durumBilgisi.innerText = "⚠️ DİKKAT: Karşı taraf pencereyi terk etti / Ekran Görüntüsü alıyor!";
+                durumBilgisi.style.color = "#ff0000";
+                sistemUyariYazdir("WRONG: Karşı taraf ekranı terk etti veya ekran görüntüsü almaya çalıştı!");
+            } else {
+                sohbetAlani.classList.remove('gizli-perde');
+                durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+                durumBilgisi.style.color = "#888";
+            }
+        });
+
+        socket.on('gelistirici-konsolu-ihlali', () => {
+            sistemUyariYazdir("WRONG: Karşı taraf sistem kodlarını incelemeye (F12) çalıştı!");
         });
     </script>
 </body>
