@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// FOTOĞRAF TRANSFERİ İÇİN LİMİTİ 5MB YAPIYORUZ
+// FOTOĞRAF TRANSFERİ İÇİN LİMİT (5MB)
 const io = new Server(server, {
     maxHttpBufferSize: 5e6 
 });
@@ -75,13 +75,17 @@ io.on('connection', (socket) => {
         if(socket.roomId) socket.to(socket.roomId).emit('mesaj-al', mesaj);
     });
 
-    // YENİ: MEDYA (FOTOĞRAF) GÖNDERME KANALI
     socket.on('medya-gonder', (medya) => {
         if(socket.roomId) socket.to(socket.roomId).emit('medya-al', medya);
     });
 
     socket.on('yaziyor', (durum) => {
         if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum);
+    });
+
+    // İŞTE EKSİK OLAN VE RADARI ÇALIŞTIRACAK ANA KÖPRÜ BURASI
+    socket.on('durum-degisti', (durum) => {
+        if(socket.roomId) socket.to(socket.roomId).emit('karsi-durum', durum);
     });
 
     socket.on('disconnect', () => {
