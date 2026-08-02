@@ -25,7 +25,7 @@
         #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
         #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
         
-        /* KENDİ EKRANINI KARARTAN GÜVENLİK PERDESİ */
+        /* Bireysel Güvenlik Perdesi (Sadece sekme değişimi veya SS girişimi için) */
         .kendi-perdemiz {
             filter: blur(25px) !important;
             opacity: 0.05;
@@ -53,35 +53,36 @@
     </div>
 
     <script>
-        // 1. KOD KORUMA VE ANTI-DEBUGGER
-        document.addEventListener('contextmenu', event => event.preventDefault());
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'U')) {
-                e.preventDefault();
-                ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Sistem kodlarını incelemek (F12) yasaktır!");
-            }
+        // ---------------------------------------------------------
+        // 1. KAYNAK KOD KORUMA KİLİDİ (F12 VE İNCELEME ENGELİ)
+        // ---------------------------------------------------------
+        
+        // Sağ tıklayarak "İncele" menüsünün açılmasını engelle
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
         });
 
-        // Bilgisayarda PrintScreen Tuşu Algılama Tuzağı
-        document.addEventListener('keyup', (e) => {
+        // F12 ve tüm kod inceleme kısayollarını tamamen pasifize et
+        document.addEventListener('keydown', (e) => {
+            if (
+                e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
+                (e.ctrlKey && e.key === 'U')
+            ) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            
+            // PrintScreen tuşu ile ekran görüntüsü alma girişimi
             if (e.key === 'PrintScreen') {
                 ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Ekran görüntüsü almak yasaktır!");
             }
         });
 
-        let kalkanAktif = true;
-        setInterval(() => {
-            const baslangic = performance.now();
-            debugger;
-            const bitis = performance.now();
-            if (bitis - baslangic > 100 && kalkanAktif) {
-                kalkanAktif = false;
-                document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;"><h1>🚨 SİSTEM İMHA EDİLDİ 🚨</h1><p>Geliştirici Konsolu tespit edildi.</p></div>`;
-                socket.disconnect();
-            }
-        }, 1000);
-
+        // ---------------------------------------------------------
         // 2. SOHBET VE ŞİFRELEME ALTYAPISI
+        // ---------------------------------------------------------
         const socket = io();
         const roomId = window.location.pathname.split('/').pop();
         const GIZLI_ANAHTAR = roomId; 
@@ -117,7 +118,7 @@
             } catch (e) { console.error("Şifre çözülemedi!"); }
         });
 
-        // 3. HAYALET MEDYA (EXIF SİLİCİ)
+        // Hayalet Medya (EXIF Silici)
         dosyaSecici.addEventListener('change', function(e) {
             const dosya = e.target.files[0];
             if (!dosya) return;
@@ -144,7 +145,7 @@
             dosyaSecici.value = '';
         });
 
-        socket.on('medya-al', (sifreliFoto) => {
+        socket.on('medya-al', `(sifreliFoto) => {
             try {
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliFoto, GIZLI_ANAHTAR);
                 const orjinalFoto = cozulenByte.toString(CryptoJS.enc.Utf8);
@@ -210,7 +211,7 @@
             }
         });
 
-        // 4. KENDİ EKRANINI CEZALANDIRAN BİREYSEL KONTROL SİSTEMİ
+        // 3. BİREYSEL EKRAN KARARTMA (Sadece sekme değişimi ve pencere terk durumunda çalışır)
         function ekraniCezaVer(sebepMetni) {
             sohbetAlani.classList.add('kendi-perdemiz');
             durumBilgisi.innerText = "⚠️ GÜVENLİK İHLALİ TESPİT EDİLDİ!";
@@ -224,7 +225,6 @@
             durumBilgisi.style.color = "#888";
         }
 
-        // Kendi sekme değiştirmen / mobilde başka uygulamaya (veya ekran görüntüsü için panele) geçmen
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Sekme değiştirdiniz veya ekran görüntüsü almaya çalıştınız!");
