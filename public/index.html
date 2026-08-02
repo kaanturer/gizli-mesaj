@@ -27,8 +27,8 @@
         
         /* SNAPCHAT TARZI GİZLEME VE BULANIKLIK PERDESİ */
         .gizli-perde {
-            filter: blur(20px) !important;
-            opacity: 0.1;
+            filter: blur(25px) !important;
+            opacity: 0.05;
             pointer-events: none;
         }
 
@@ -53,7 +53,7 @@
     </div>
 
     <script>
-        // 1. KOD KORUMA VE ANTI-DEBUGGER (F12 / Sağ Tık Engeli)
+        // 1. KOD KORUMA VE ANTI-DEBUGGER
         document.addEventListener('contextmenu', event => event.preventDefault());
         document.addEventListener('keydown', (e) => {
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'U')) {
@@ -204,33 +204,31 @@
             }
         });
 
-        // 4. SNAPCHAT TARZI SEKME VE EKRAN GÖRÜNTÜSÜ TUZAĞI
-        // Kullanıcı başka sekmeye geçtiğinde veya ekran görüntüsü almak için bildirim paneline/başka uygulamaya kaydırdığında tetiklenir
+        // 4. DOĞRU AKIŞ: KENDİ SEKME DEĞİŞTİRMENİ KARŞI TARAFA BİLDİRME
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                socket.emit('durum-degisti', 'gizlendi');
+                socket.emit('durum-degisti', 'ben-gizlendim');
             } else {
-                socket.emit('durum-degisti', 'aktif');
+                socket.emit('durum-degisti', 'ben-aktifim');
             }
         });
 
-        // Pencere odak kaybı (Ekran görüntüsü aracı açıldığında veya masaüstüne tıklandığında)
         window.addEventListener('blur', () => {
-            socket.emit('durum-degisti', 'gizlendi');
+            socket.emit('durum-degisti', 'ben-gizlendim');
         });
 
         window.addEventListener('focus', () => {
-            socket.emit('durum-degisti', 'aktif');
+            socket.emit('durum-degisti', 'ben-aktifim');
         });
 
-        // KARŞI TARAFTAN GELEN SNAPCHAT İHLAL RAPORLARI
+        // KARŞI TARAF SEKME DEĞİŞTİRDİĞİNDE KENDİ EKRANINI KARART VE UYARI VER
         socket.on('karsi-durum', (durum) => {
-            if (durum === 'gizlendi') {
+            if (durum === 'ben-gizlendim') {
                 sohbetAlani.classList.add('gizli-perde');
-                durumBilgisi.innerText = "⚠️ DİKKAT: Karşı taraf pencereyi terk etti / Ekran Görüntüsü alıyor!";
+                durumBilgisi.innerText = "⚠️ DİKKAT: Karşı taraf pencereyi terk etti / SS almaya çalışıyor!";
                 durumBilgisi.style.color = "#ff0000";
                 sistemUyariYazdir("WRONG: Karşı taraf ekranı terk etti veya ekran görüntüsü almaya çalıştı!");
-            } else {
+            } else if (durum === 'ben-aktifim') {
                 sohbetAlani.classList.remove('gizli-perde');
                 durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
                 durumBilgisi.style.color = "#888";
