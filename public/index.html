@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem</title>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- YENİ: ASKERİ DÜZEY ŞİFRELEME KÜTÜPHANESİ (CryptoJS) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         body {
@@ -30,6 +29,7 @@
             display: none;
             flex-direction: column;
             height: 80vh;
+            transition: filter 0.3s ease;
         }
         #mesajlar {
             flex-grow: 1;
@@ -87,9 +87,10 @@
             margin-bottom: 10px;
             text-align: center;
             height: 15px;
+            font-weight: bold;
         }
         .bulaniklilik {
-            filter: blur(15px);
+            filter: blur(10px);
             pointer-events: none;
         }
         #esc-uyari {
@@ -110,7 +111,6 @@
         <div id="durum-bilgisi">Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒</div>
         <div id="mesajlar"></div>
         <div id="girdi-alani">
-            <!-- YENİ: GİZLİ DOSYA SEÇİCİ -->
             <input type="file" id="dosya-secici" accept="image/*" style="display: none;">
             <button id="dosya-butonu" onclick="document.getElementById('dosya-secici').click()">📎</button>
             <input type="text" id="mesaj-kutusu" placeholder="Şifrelenmiş mesajını yaz..." autocomplete="off">
@@ -121,8 +121,6 @@
     <script>
         const socket = io();
         const roomId = window.location.pathname.split('/').pop();
-        
-        // YENİ: ŞİFRELEME ANAHTARIMIZ (Odanın benzersiz ID'sini şifre anahtarı olarak kullanıyoruz)
         const GIZLI_ANAHTAR = roomId; 
 
         const beklemeEkrani = document.getElementById('bekleme-ekrani');
@@ -135,7 +133,7 @@
         socket.emit('odaya-katil', roomId);
 
         socket.on('katilim-durumu', (data) => {
-            beklemeEkrani.innerText = "Davetiyenin (Linkin) tıklanması bekleniyor...";
+            beklemeEkrani.innerText = "Davetiyenin tıklanması bekleniyor...";
         });
 
         socket.on('sohbet-basladi', () => {
@@ -148,64 +146,47 @@
             socket.disconnect();
         });
 
-        // MESAJ GÖNDERME VE ŞİFRELEME
         function mesajGonder() {
             const mesaj = mesajKutusu.value.trim();
             if (mesaj) {
-                // Ekrana Şifresiz Halini Yazdır
                 ekranaYazdir('Sen', mesaj, 'ben');
-                
-                // YENİ: Mesajı CryptoJS ile Şifrele ve Sunucuya Öyle Gönder
                 const sifreliMesaj = CryptoJS.AES.encrypt(mesaj, GIZLI_ANAHTAR).toString();
                 socket.emit('mesaj-gonder', sifreliMesaj);
-                
                 mesajKutusu.value = '';
             }
         }
 
-        // MESAJ ALMA VE ŞİFRE ÇÖZME
         socket.on('mesaj-al', (sifreliMesaj) => {
-            // YENİ: Sunucudan Gelen Harf Çorbasını Kendi Bilgisayarında Çöz
             try {
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliMesaj, GIZLI_ANAHTAR);
                 const orjinalMesaj = cozulenByte.toString(CryptoJS.enc.Utf8);
                 
                 ekranaYazdir('Ajan', orjinalMesaj, 'karsi');
                 durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+                durumBilgisi.style.color = "#888";
             } catch (e) {
                 console.error("Şifre çözülemedi!");
             }
         });
 
-        // YENİ: FOTOĞRAF SEÇME VE ŞİFRELEYİP GÖNDERME
         dosyaSecici.addEventListener('change', function(e) {
             const dosya = e.target.files[0];
             if (!dosya) return;
-
-            // Fotoğraf 5MB'dan büyükse uyar
             if (dosya.size > 5 * 1024 * 1024) {
                 alert("Fotoğraf çok büyük. Lütfen 5 MB altı bir resim seçin.");
                 return;
             }
-
             const okuyucu = new FileReader();
             okuyucu.onload = function(olay) {
-                const base64Foto = olay.target.result; // Fotoğrafın metin hali
-                
-                // Kendi ekranında göster
+                const base64Foto = olay.target.result; 
                 fotoYazdir('Sen', base64Foto, 'ben');
-
-                // Fotoğrafı şifrele ve sunucuya gönder
                 const sifreliFoto = CryptoJS.AES.encrypt(base64Foto, GIZLI_ANAHTAR).toString();
                 socket.emit('medya-gonder', sifreliFoto);
             };
             okuyucu.readAsDataURL(dosya);
-            
-            // İnputu sıfırla ki aynı fotoğrafı bir daha seçebilesin
             dosyaSecici.value = '';
         });
 
-        // YENİ: ŞİFRELİ FOTOĞRAF ALMA VE ÇÖZME
         socket.on('medya-al', (sifreliFoto) => {
             try {
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliFoto, GIZLI_ANAHTAR);
@@ -216,7 +197,6 @@
             }
         });
 
-        // YARDIMCI FONKSİYONLAR
         function ekranaYazdir(kisi, mesaj, cssSinifi) {
             const div = document.createElement('div');
             div.className = `mesaj ${cssSinifi}`;
@@ -233,12 +213,10 @@
             mesajlar.scrollTop = mesajlar.scrollHeight;
         }
 
-        // Enter Tuşu
         mesajKutusu.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') mesajGonder();
         });
 
-        // Yazıyor Animasyonu
         let yaziyorZamanlayici;
         mesajKutusu.addEventListener('input', () => {
             socket.emit('yaziyor', true);
@@ -248,9 +226,9 @@
 
         socket.on('karsi-yaziyor', (durum) => {
             durumBilgisi.innerText = durum ? "Karşı taraf şifreli bir mesaj yazıyor..." : "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+            durumBilgisi.style.color = durum ? "#0f0" : "#888";
         });
 
-        // Panik Butonu
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.body.classList.add('bulaniklilik');
@@ -261,9 +239,25 @@
             }
         });
 
-        // Ekran Gizlendiğinde
-        document.addEventListener('visibilitychange', () => {
-            socket.emit('durum-degisti', document.hidden ? 'gizli' : 'aktif');
+        // DAHA HASSAS RADAR: Sadece sekme değil, pencereden çıkılınca da uyar
+        window.addEventListener('blur', () => {
+            socket.emit('durum-degisti', 'gizli');
+        });
+
+        window.addEventListener('focus', () => {
+            socket.emit('durum-degisti', 'aktif');
+        });
+
+        socket.on('karsi-durum', (durum) => {
+            if (durum === 'gizli') {
+                sohbetAlani.classList.add('bulaniklilik');
+                durumBilgisi.innerText = "⚠️ DİKKAT: Karşı taraf ekrandan ayrıldı!";
+                durumBilgisi.style.color = "#ff0000";
+            } else {
+                sohbetAlani.classList.remove('bulaniklilik');
+                durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+                durumBilgisi.style.color = "#888";
+            }
         });
     </script>
 </body>
