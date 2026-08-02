@@ -25,7 +25,6 @@
         #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
         #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
         
-        /* Bireysel Güvenlik Perdesi (Sadece sekme değişimi veya SS girişimi için) */
         .kendi-perdemiz {
             filter: blur(25px) !important;
             opacity: 0.05;
@@ -53,16 +52,11 @@
     </div>
 
     <script>
-        // ---------------------------------------------------------
         // 1. KAYNAK KOD KORUMA KİLİDİ (F12 VE İNCELEME ENGELİ)
-        // ---------------------------------------------------------
-        
-        // Sağ tıklayarak "İncele" menüsünün açılmasını engelle
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
 
-        // F12 ve tüm kod inceleme kısayollarını tamamen pasifize et
         document.addEventListener('keydown', (e) => {
             if (
                 e.key === 'F12' || 
@@ -74,15 +68,12 @@
                 return false;
             }
             
-            // PrintScreen tuşu ile ekran görüntüsü alma girişimi
             if (e.key === 'PrintScreen') {
                 ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Ekran görüntüsü almak yasaktır!");
             }
         });
 
-        // ---------------------------------------------------------
         // 2. SOHBET VE ŞİFRELEME ALTYAPISI
-        // ---------------------------------------------------------
         const socket = io();
         const roomId = window.location.pathname.split('/').pop();
         const GIZLI_ANAHTAR = roomId; 
@@ -145,7 +136,7 @@
             dosyaSecici.value = '';
         });
 
-        socket.on('medya-al', `(sifreliFoto) => {
+        socket.on('medya-al', (sifreliFoto) => {
             try {
                 const cozulenByte = CryptoJS.AES.decrypt(sifreliFoto, GIZLI_ANAHTAR);
                 const orjinalFoto = cozulenByte.toString(CryptoJS.enc.Utf8);
@@ -211,7 +202,7 @@
             }
         });
 
-        // 3. BİREYSEL EKRAN KARARTMA (Sadece sekme değişimi ve pencere terk durumunda çalışır)
+        // 3. BİREYSEL EKRAN KARARTMA
         function ekraniCezaVer(sebepMetni) {
             sohbetAlani.classList.add('kendi-perdemiz');
             durumBilgisi.innerText = "⚠️ GÜVENLİK İHLALİ TESPİT EDİLDİ!";
