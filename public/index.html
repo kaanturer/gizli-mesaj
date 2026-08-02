@@ -25,8 +25,8 @@
         #durum-bilgisi { font-size: 12px; color: #888; margin-bottom: 10px; text-align: center; height: 15px; font-weight: bold; }
         #esc-uyari { position: absolute; top: 10px; left: 10px; font-size: 12px; color: gray; }
         
-        /* SNAPCHAT TARZI GİZLEME VE BULANIKLIK PERDESİ */
-        .gizli-perde {
+        /* KENDİ EKRANINI KARARTAN GÜVENLİK PERDESİ */
+        .kendi-perdemiz {
             filter: blur(25px) !important;
             opacity: 0.05;
             pointer-events: none;
@@ -58,7 +58,14 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'U')) {
                 e.preventDefault();
-                socket.emit('durum-degisti', 'gelistirici-konsolu-ihlali');
+                ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Sistem kodlarını incelemek (F12) yasaktır!");
+            }
+        });
+
+        // Bilgisayarda PrintScreen Tuşu Algılama Tuzağı
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'PrintScreen') {
+                ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Ekran görüntüsü almak yasaktır!");
             }
         });
 
@@ -70,7 +77,6 @@
             if (bitis - baslangic > 100 && kalkanAktif) {
                 kalkanAktif = false;
                 document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;"><h1>🚨 SİSTEM İMHA EDİLDİ 🚨</h1><p>Geliştirici Konsolu tespit edildi.</p></div>`;
-                socket.emit('durum-degisti', 'gelistirici-konsolu-ihlali');
                 socket.disconnect();
             }
         }, 1000);
@@ -204,39 +210,35 @@
             }
         });
 
-        // 4. DOĞRU AKIŞ: KENDİ SEKME DEĞİŞTİRMENİ KARŞI TARAFA BİLDİRME
+        // 4. KENDİ EKRANINI CEZALANDIRAN BİREYSEL KONTROL SİSTEMİ
+        function ekraniCezaVer(sebepMetni) {
+            sohbetAlani.classList.add('kendi-perdemiz');
+            durumBilgisi.innerText = "⚠️ GÜVENLİK İHLALİ TESPİT EDİLDİ!";
+            durumBilgisi.style.color = "#ff0000";
+            sistemUyariYazdir(sebepMetni);
+        }
+
+        function ekraniNormaleDondur() {
+            sohbetAlani.classList.remove('kendi-perdemiz');
+            durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+            durumBilgisi.style.color = "#888";
+        }
+
+        // Kendi sekme değiştirmen / mobilde başka uygulamaya (veya ekran görüntüsü için panele) geçmen
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                socket.emit('durum-degisti', 'ben-gizlendim');
+                ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Sekme değiştirdiniz veya ekran görüntüsü almaya çalıştınız!");
             } else {
-                socket.emit('durum-degisti', 'ben-aktifim');
+                ekraniNormaleDondur();
             }
         });
 
         window.addEventListener('blur', () => {
-            socket.emit('durum-degisti', 'ben-gizlendim');
+            ekraniCezaVer("GÜVENLİK SEBEBİ İLE: Pencere terk edildi / Ekran görüntüsü aracı açıldı!");
         });
 
         window.addEventListener('focus', () => {
-            socket.emit('durum-degisti', 'ben-aktifim');
-        });
-
-        // KARŞI TARAF SEKME DEĞİŞTİRDİĞİNDE KENDİ EKRANINI KARART VE UYARI VER
-        socket.on('karsi-durum', (durum) => {
-            if (durum === 'ben-gizlendim') {
-                sohbetAlani.classList.add('gizli-perde');
-                durumBilgisi.innerText = "⚠️ DİKKAT: Karşı taraf pencereyi terk etti / SS almaya çalışıyor!";
-                durumBilgisi.style.color = "#ff0000";
-                sistemUyariYazdir("WRONG: Karşı taraf ekranı terk etti veya ekran görüntüsü almaya çalıştı!");
-            } else if (durum === 'ben-aktifim') {
-                sohbetAlani.classList.remove('gizli-perde');
-                durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
-                durumBilgisi.style.color = "#888";
-            }
-        });
-
-        socket.on('gelistirici-konsolu-ihlali', () => {
-            sistemUyariYazdir("WRONG: Karşı taraf sistem kodlarını incelemeye (F12) çalıştı!");
+            ekraniNormaleDondur();
         });
     </script>
 </body>
