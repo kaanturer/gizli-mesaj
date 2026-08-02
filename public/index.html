@@ -3,143 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gizli Sohbet</title>
+    <title>Sistem</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- YENİ: ASKERİ DÜZEY ŞİFRELEME KÜTÜPHANESİ (CryptoJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        :root { --bg: #09090b; --surface: #18181b; --primary: #3b82f6; --text: #fafafa; --muted: #a1a1aa; }
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; -webkit-user-select: none; overflow: hidden; margin: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        
-        #security-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; color: #ef4444; display: none; justify-content: center; align-items: center; z-index: 9999; font-size: 1.2rem; font-weight: bold; text-align: center; padding: 20px; letter-spacing: 1px;}
-        
-        #app-wrapper { width: 95%; max-width: 600px; display: flex; flex-direction: column; align-items: center; }
-        
-        .header-info { color: var(--muted); text-align: center; margin-bottom: 20px; font-size: 0.85rem; letter-spacing: 0.5px; }
-        .badge { background: #27272a; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-bottom: 10px; display: inline-block; color: #10b981; border: 1px solid #10b98133; }
-        
-        #chat-container { width: 100%; height: 65vh; background: var(--surface); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box; border: 1px solid #27272a;}
-        
-        /* Bulanıklık artık tüm kutuya değil, SADECE mesajlara uygulanıyor */
-        #messages { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; display: flex; flex-direction: column; padding-right: 5px; filter: blur(14px); transition: filter 0.2s ease; pointer-events: none; }
-        #messages::-webkit-scrollbar { width: 4px; }
-        #messages::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
-        
-        /* Tıklanınca veya odaklanınca bulanıklık kalkıyor */
-        #chat-container.revealed #messages { filter: blur(0px); pointer-events: auto; }
-
-        .msg { margin-bottom: 12px; padding: 12px 16px; border-radius: 18px; background: #27272a; width: fit-content; max-width: 75%; word-wrap: break-word; font-size: 0.95rem; line-height: 1.4; border-bottom-left-radius: 4px;}
-        .msg.me { background: var(--primary); align-self: flex-end; border-bottom-left-radius: 18px; border-bottom-right-radius: 4px; }
-        
-        .input-area { display: flex; gap: 10px; position: relative; }
-        /* Mesaj kutusu her zaman tıklanabilir */
-        input { flex-grow: 1; padding: 14px 18px; background: #09090b; border: 1px solid #3f3f46; color: var(--text); border-radius: 12px; outline: none; font-size: 0.95rem; transition: border 0.2s; }
-        input:focus { border-color: var(--primary); }
-        input:disabled { opacity: 0.5; }
-        
-        #typing-indicator { font-size: 0.8rem; color: var(--muted); font-style: italic; align-self: flex-start; margin-bottom: 10px; display: none; }
-        #status-indicator { position: absolute; top: -25px; left: 10px; font-size: 0.75rem; color: #fbbf24; font-weight: bold; display: none; }
+        body {
+            background-color: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #sohbet-alani {
+            width: 100%;
+            max-width: 600px;
+            background-color: rgba(10, 10, 10, 0.9);
+            border: 1px solid #0f0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px #0f0;
+            display: none;
+            flex-direction: column;
+            height: 80vh;
+        }
+        #mesajlar {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 10px;
+            word-wrap: break-word;
+        }
+        .mesaj { margin-bottom: 10px; }
+        .ben { color: #0f0; text-align: right; }
+        .karsi { color: #ff0055; text-align: left; }
+        .medya-gorsel {
+            max-width: 80%;
+            border-radius: 8px;
+            margin-top: 5px;
+            border: 1px solid #333;
+        }
+        #girdi-alani {
+            display: flex;
+            gap: 10px;
+        }
+        #mesaj-kutusu {
+            flex-grow: 1;
+            background-color: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 10px;
+            outline: none;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+        #dosya-butonu {
+            background-color: #444;
+            color: white;
+        }
+        #bekleme-ekrani {
+            text-align: center;
+            font-size: 20px;
+            animation: yanipSonme 1.5s infinite;
+        }
+        @keyframes yanipSonme {
+            50% { opacity: 0.3; }
+        }
+        #durum-bilgisi {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+            text-align: center;
+            height: 15px;
+        }
+        .bulaniklilik {
+            filter: blur(15px);
+            pointer-events: none;
+        }
+        #esc-uyari {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: gray;
+        }
     </style>
 </head>
 <body>
-    <div id="security-overlay">🛡️ GÜVENLİK MODU AKTİF<br><br>Görüntüleme Engellendi</div>
-    
-    <div id="app-wrapper">
-        <div class="badge">Uçtan Uca Şifreli</div>
-        <div class="header-info">Mesajları okumak için ekrana basılı tutun veya mesaj yazın<br><br><span style="color:#ef4444; font-weight:bold;">Panik Butonu: ESC</span></div>
-        
-        <div id="chat-container">
-            <div id="messages"></div>
-            <div id="typing-indicator">Karşı taraf yazıyor...</div>
-            
-            <div class="input-area">
-                <div id="status-indicator">Karşı taraf sekmeden ayrıldı!</div>
-                <input type="text" id="msg-input" placeholder="Bekleniyor..." disabled autocomplete="off">
-            </div>
+
+    <div id="esc-uyari">Panik Butonu: ESC</div>
+    <div id="bekleme-ekrani">Bağlantı Kuruluyor...</div>
+
+    <div id="sohbet-alani">
+        <div id="durum-bilgisi">Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒</div>
+        <div id="mesajlar"></div>
+        <div id="girdi-alani">
+            <!-- YENİ: GİZLİ DOSYA SEÇİCİ -->
+            <input type="file" id="dosya-secici" accept="image/*" style="display: none;">
+            <button id="dosya-butonu" onclick="document.getElementById('dosya-secici').click()">📎</button>
+            <input type="text" id="mesaj-kutusu" placeholder="Şifrelenmiş mesajını yaz..." autocomplete="off">
+            <button onclick="mesajGonder()">GÖNDER</button>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
     <script>
-        const chatContainer = document.getElementById('chat-container');
-        const overlay = document.getElementById('security-overlay');
-        const input = document.getElementById('msg-input');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const statusIndicator = document.getElementById('status-indicator');
         const socket = io();
-
-        // PANİK BUTONU (ESC)
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') window.location.replace('https://www.google.com'); 
-        });
-
-        // GÜVENLİK & DURUM BİLDİRİMİ
-        const handleFocusLost = () => { overlay.style.display = 'flex'; socket.emit('durum-degisti', false); };
-        const handleFocusGain = () => { overlay.style.display = 'none'; socket.emit('durum-degisti', true); };
-        window.addEventListener('blur', handleFocusLost);
-        window.addEventListener('focus', handleFocusGain);
-        document.addEventListener('visibilitychange', () => document.hidden ? handleFocusLost() : handleFocusGain());
+        const roomId = window.location.pathname.split('/').pop();
         
-        // AKILLI BULANIKLIK KALDIRMA (Basılı tutunca veya yazı yazarken)
-        const reveal = () => chatContainer.classList.add('revealed');
-        const hide = () => { if (document.activeElement !== input) chatContainer.classList.remove('revealed'); };
+        // YENİ: ŞİFRELEME ANAHTARIMIZ (Odanın benzersiz ID'sini şifre anahtarı olarak kullanıyoruz)
+        const GIZLI_ANAHTAR = roomId; 
 
-        window.addEventListener('mousedown', reveal);
-        window.addEventListener('mouseup', hide);
-        window.addEventListener('touchstart', reveal);
-        window.addEventListener('touchend', hide);
-        
-        input.addEventListener('focus', reveal);
-        input.addEventListener('blur', hide);
-        
-        document.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 's')) { e.preventDefault(); handleFocusLost(); }
-        });
+        const beklemeEkrani = document.getElementById('bekleme-ekrani');
+        const sohbetAlani = document.getElementById('sohbet-alani');
+        const mesajlar = document.getElementById('mesajlar');
+        const mesajKutusu = document.getElementById('mesaj-kutusu');
+        const durumBilgisi = document.getElementById('durum-bilgisi');
+        const dosyaSecici = document.getElementById('dosya-secici');
 
-        // YAZIYOR... ALTYAPISI
-        let typingTimeout;
-        input.addEventListener('input', () => {
-            socket.emit('yaziyor', true);
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => socket.emit('yaziyor', false), 1500);
-        });
-        socket.on('karsi-yaziyor', (durum) => typingIndicator.style.display = durum ? 'block' : 'none');
-        socket.on('karsi-durum', (aktif) => statusIndicator.style.display = aktif ? 'none' : 'block');
-
-        // TEMEL BAĞLANTI LOKİKLERİ
-        const path = window.location.pathname;
-        const roomId = path.split('/sohbet/')[1];
-        const messagesDiv = document.getElementById('messages');
-
-        if(roomId) socket.emit('odaya-katil', roomId);
+        socket.emit('odaya-katil', roomId);
 
         socket.on('katilim-durumu', (data) => {
-            if(!data.basarili) { alert(data.mesaj); window.location.href = 'about:blank'; }
+            beklemeEkrani.innerText = "Davetiyenin (Linkin) tıklanması bekleniyor...";
         });
 
         socket.on('sohbet-basladi', () => {
-            input.disabled = false;
-            input.placeholder = "Gizli mesajınızı yazın...";
-            messagesDiv.innerHTML += '<div class="msg" style="color: #10b981; background: transparent; align-self: center; font-weight:bold;">Bağlantı Kuruldu</div>';
+            beklemeEkrani.style.display = 'none';
+            sohbetAlani.style.display = 'flex';
         });
 
-        socket.on('imha-edildi', (mesaj) => {
-            alert(mesaj);
-            window.location.replace('about:blank');
+        socket.on('imha-edildi', (sebep) => {
+            document.body.innerHTML = `<div style="text-align:center; color:red; margin-top:20%;"><h1>SİSTEM İMHA EDİLDİ</h1><p>${sebep}</p></div>`;
+            socket.disconnect();
         });
 
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && input.value.trim() !== '') {
-                const txt = input.value;
-                messagesDiv.innerHTML += `<div class="msg me">${txt}</div>`;
-                socket.emit('mesaj-gonder', txt);
-                input.value = '';
-                socket.emit('yaziyor', false);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // MESAJ GÖNDERME VE ŞİFRELEME
+        function mesajGonder() {
+            const mesaj = mesajKutusu.value.trim();
+            if (mesaj) {
+                // Ekrana Şifresiz Halini Yazdır
+                ekranaYazdir('Sen', mesaj, 'ben');
+                
+                // YENİ: Mesajı CryptoJS ile Şifrele ve Sunucuya Öyle Gönder
+                const sifreliMesaj = CryptoJS.AES.encrypt(mesaj, GIZLI_ANAHTAR).toString();
+                socket.emit('mesaj-gonder', sifreliMesaj);
+                
+                mesajKutusu.value = '';
+            }
+        }
+
+        // MESAJ ALMA VE ŞİFRE ÇÖZME
+        socket.on('mesaj-al', (sifreliMesaj) => {
+            // YENİ: Sunucudan Gelen Harf Çorbasını Kendi Bilgisayarında Çöz
+            try {
+                const cozulenByte = CryptoJS.AES.decrypt(sifreliMesaj, GIZLI_ANAHTAR);
+                const orjinalMesaj = cozulenByte.toString(CryptoJS.enc.Utf8);
+                
+                ekranaYazdir('Ajan', orjinalMesaj, 'karsi');
+                durumBilgisi.innerText = "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+            } catch (e) {
+                console.error("Şifre çözülemedi!");
             }
         });
 
-        socket.on('mesaj-al', (mesaj) => {
-            messagesDiv.innerHTML += `<div class="msg">${mesaj}</div>`;
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // YENİ: FOTOĞRAF SEÇME VE ŞİFRELEYİP GÖNDERME
+        dosyaSecici.addEventListener('change', function(e) {
+            const dosya = e.target.files[0];
+            if (!dosya) return;
+
+            // Fotoğraf 5MB'dan büyükse uyar
+            if (dosya.size > 5 * 1024 * 1024) {
+                alert("Fotoğraf çok büyük. Lütfen 5 MB altı bir resim seçin.");
+                return;
+            }
+
+            const okuyucu = new FileReader();
+            okuyucu.onload = function(olay) {
+                const base64Foto = olay.target.result; // Fotoğrafın metin hali
+                
+                // Kendi ekranında göster
+                fotoYazdir('Sen', base64Foto, 'ben');
+
+                // Fotoğrafı şifrele ve sunucuya gönder
+                const sifreliFoto = CryptoJS.AES.encrypt(base64Foto, GIZLI_ANAHTAR).toString();
+                socket.emit('medya-gonder', sifreliFoto);
+            };
+            okuyucu.readAsDataURL(dosya);
+            
+            // İnputu sıfırla ki aynı fotoğrafı bir daha seçebilesin
+            dosyaSecici.value = '';
+        });
+
+        // YENİ: ŞİFRELİ FOTOĞRAF ALMA VE ÇÖZME
+        socket.on('medya-al', (sifreliFoto) => {
+            try {
+                const cozulenByte = CryptoJS.AES.decrypt(sifreliFoto, GIZLI_ANAHTAR);
+                const orjinalFoto = cozulenByte.toString(CryptoJS.enc.Utf8);
+                fotoYazdir('Ajan', orjinalFoto, 'karsi');
+            } catch(e) {
+                console.error("Fotoğraf şifresi çözülemedi!");
+            }
+        });
+
+        // YARDIMCI FONKSİYONLAR
+        function ekranaYazdir(kisi, mesaj, cssSinifi) {
+            const div = document.createElement('div');
+            div.className = `mesaj ${cssSinifi}`;
+            div.innerHTML = `<strong>${kisi}:</strong> ${mesaj}`;
+            mesajlar.appendChild(div);
+            mesajlar.scrollTop = mesajlar.scrollHeight;
+        }
+
+        function fotoYazdir(kisi, fotoBase64, cssSinifi) {
+            const div = document.createElement('div');
+            div.className = `mesaj ${cssSinifi}`;
+            div.innerHTML = `<strong>${kisi}:</strong><br><img src="${fotoBase64}" class="medya-gorsel">`;
+            mesajlar.appendChild(div);
+            mesajlar.scrollTop = mesajlar.scrollHeight;
+        }
+
+        // Enter Tuşu
+        mesajKutusu.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') mesajGonder();
+        });
+
+        // Yazıyor Animasyonu
+        let yaziyorZamanlayici;
+        mesajKutusu.addEventListener('input', () => {
+            socket.emit('yaziyor', true);
+            clearTimeout(yaziyorZamanlayici);
+            yaziyorZamanlayici = setTimeout(() => socket.emit('yaziyor', false), 1500);
+        });
+
+        socket.on('karsi-yaziyor', (durum) => {
+            durumBilgisi.innerText = durum ? "Karşı taraf şifreli bir mesaj yazıyor..." : "Uçtan Uca Şifreli Bağlantı (E2EE) Aktif 🔒";
+        });
+
+        // Panik Butonu
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.body.classList.add('bulaniklilik');
+                socket.disconnect();
+                setTimeout(() => {
+                    window.location.href = "https://www.google.com";
+                }, 500);
+            }
+        });
+
+        // Ekran Gizlendiğinde
+        document.addEventListener('visibilitychange', () => {
+            socket.emit('durum-degisti', document.hidden ? 'gizli' : 'aktif');
         });
     </script>
 </body>
