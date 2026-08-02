@@ -7,7 +7,6 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// FOTOĞRAF TRANSFERİ İÇİN LİMİT (5MB)
 const io = new Server(server, {
     maxHttpBufferSize: 5e6 
 });
@@ -27,6 +26,18 @@ app.get('/', (req, res) => {
         activeRooms.set(roomId, timeout);
         res.redirect(`/sohbet/${roomId}`);
     } else {
+        // YENİ: BAL KÜPÜ (HONEYPOT) TETİKLENDİ
+        // İzinsiz girmeye çalışan kişinin IP ve Cihaz bilgisini çek
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Gizli IP';
+        const userAgent = req.headers['user-agent'] || 'Bilinmeyen Cihaz';
+        
+        // Eğer içeride açık bir sohbet odası varsa, bu sızma girişimini oraya raporla
+        io.emit('tehdit-algilandi', { 
+            ip: ip.split(',')[0], 
+            cihaz: userAgent 
+        });
+
+        // Şüpheliye hiçbir şey çaktırma, normal hata sayfasını göster
         res.status(404).send(`
             <html>
             <body style="background-color: white; color: black; font-family: sans-serif; text-align: center; padding-top: 10%;">
@@ -83,7 +94,6 @@ io.on('connection', (socket) => {
         if(socket.roomId) socket.to(socket.roomId).emit('karsi-yaziyor', durum);
     });
 
-    // İŞTE EKSİK OLAN VE RADARI ÇALIŞTIRACAK ANA KÖPRÜ BURASI
     socket.on('durum-degisti', (durum) => {
         if(socket.roomId) socket.to(socket.roomId).emit('karsi-durum', durum);
     });
