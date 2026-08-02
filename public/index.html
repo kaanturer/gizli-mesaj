@@ -14,7 +14,7 @@
         .ben { color: #0f0; text-align: right; }
         .karsi { color: #ff0055; text-align: left; }
         .sistem-uyari { color: #ff0000; text-align: center; font-weight: bold; background-color: rgba(255, 0, 0, 0.1); padding: 5px; border: 1px dashed #ff0000; border-radius: 5px; }
-        .tehdit-uyari { color: #ff9900; text-align: center; font-weight: bold; background-color: rgba(255, 153, 0, 0.1); padding: 10px; border: 1px solid #ff9900; border-radius: 5px; margin-bottom: 10px; font-size: 11px; }
+        .tehdit-uyari { color: #ff9900; text-align: left; background-color: rgba(255, 153, 0, 0.1); padding: 15px; border: 1px solid #ff9900; border-radius: 5px; margin-bottom: 10px; font-size: 13px; font-family: monospace;}
         .medya-gorsel { max-width: 80%; border-radius: 8px; margin-top: 5px; border: 1px solid #333; }
         #girdi-alani { display: flex; gap: 10px; }
         #mesaj-kutusu { flex-grow: 1; background-color: #000; border: 1px solid #0f0; color: #0f0; padding: 10px; outline: none; border-radius: 5px; }
@@ -78,7 +78,6 @@
             } catch (e) { console.error("Şifre çözülemedi!"); }
         });
 
-        // YENİ: HAYALET MEDYA PROTOKOLÜ (EXIF SİLİCİ)
         dosyaSecici.addEventListener('change', function(e) {
             const dosya = e.target.files[0];
             if (!dosya) return;
@@ -86,8 +85,6 @@
             
             const okuyucu = new FileReader();
             okuyucu.onload = function(olay) {
-                // Fotoğrafı gizli bir tuvale (canvas) aktarıp yeniden çiziyoruz.
-                // Bu işlem GPS, Cihaz modeli ve çekim saati gibi tüm izleri yok eder!
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
@@ -96,9 +93,7 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0);
                     
-                    // Tertemiz, izsiz yeni fotoğraf verisi
                     const exifsizFoto = canvas.toDataURL('image/jpeg', 0.8); 
-                    
                     fotoYazdir('Sen', exifsizFoto, 'ben');
                     const sifreliFoto = CryptoJS.AES.encrypt(exifsizFoto, GIZLI_ANAHTAR).toString();
                     socket.emit('medya-gonder', sifreliFoto);
@@ -141,11 +136,15 @@
             mesajlar.scrollTop = mesajlar.scrollHeight;
         }
 
-        // YENİ: BAL KÜPÜ RAPORUNU EKRANA BAS
+        // YENİ: KONUM DESTEKLİ BAL KÜPÜ RAPORUNU EKRANA BAS
         socket.on('tehdit-algilandi', (bilgi) => {
             const div = document.createElement('div');
             div.className = `mesaj tehdit-uyari`;
-            div.innerHTML = `🚨 BAL KÜPÜ TETİKLENDİ!<br>Sisteme yetkisiz giriş denemesi tespit edildi.<br><b>Hedef IP:</b> ${bilgi.ip}<br><b>Cihaz:</b> ${bilgi.cihaz}`;
+            div.innerHTML = `<span style="color:red; font-size:15px;">🚨 SİSTEME YETKİSİZ SIZMA GİRİŞİMİ!</span><hr style="border-color:#ff9900; opacity:0.3;">
+            <b>IP Adresi:</b> ${bilgi.ip}<br>
+            <b>Konum:</b> ${bilgi.konum}<br>
+            <b>İnternet Sağlayıcı:</b> ${bilgi.isp}<br>
+            <b>Cihaz:</b> ${bilgi.cihaz}`;
             mesajlar.appendChild(div);
             mesajlar.scrollTop = mesajlar.scrollHeight;
         });
